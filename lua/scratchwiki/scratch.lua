@@ -89,7 +89,7 @@ end
 ---@return ScratchWikiTask[]
 function M.list(directory)
     directory = directory
-        or (vim.fn.stdpath("data") .. "/scratch.nvim/issues")
+        or require("scratchwiki.config").options.scratch_dir
 
     local files = vim.fn.globpath(directory, "*.md", false, true)
     local tasks = {}
@@ -308,7 +308,7 @@ function M.create(title, status, directory)
     end
 
     directory = directory
-        or (vim.fn.stdpath("data") .. "/scratch.nvim/issues")
+        or require("scratchwiki.config").options.scratch_dir
 
     if vim.fn.isdirectory(directory) ~= 1 then
         local result = vim.fn.mkdir(directory, "p")

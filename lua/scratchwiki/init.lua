@@ -83,4 +83,8 @@ function M.refresh(bufnr)
     return true
 end
 
+function M.setup(opts)
+    require("scratchwiki.config").setup(opts)
+end
+
 return M
