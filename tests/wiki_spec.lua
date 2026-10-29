@@ -165,3 +165,46 @@ describe("scratchwiki.wiki.replace_block", function()
         assert.matches("multiple scratchwiki start markers", err)
     end)
 end)
+
+describe("scratchwiki.wiki.parse_start_marker", function()
+    it("parses a marker without options", function()
+        assert.are.same(
+            {},
+            wiki.parse_start_marker(
+                "<!-- scratchwiki:start -->"
+            )
+        )
+    end)
+
+    it("parses a status filter", function()
+        assert.are.same(
+            {
+                status = "open",
+            },
+            wiki.parse_start_marker(
+                "<!-- scratchwiki:start status=open -->"
+            )
+        )
+    end)
+
+    it("parses multiple options", function()
+        assert.are.same(
+            {
+                status = "open",
+                priority = "high",
+                tags = "architecture",
+            },
+            wiki.parse_start_marker(
+                "<!-- scratchwiki:start status=open priority=high tags=architecture -->"
+            )
+        )
+    end)
+
+    it("ignores unrelated markdown comments", function()
+        assert.is_nil(
+            wiki.parse_start_marker(
+                "<!-- something else -->"
+            )
+        )
+    end)
+end)

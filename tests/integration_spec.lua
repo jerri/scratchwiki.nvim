@@ -437,4 +437,189 @@ describe("scratchwiki integration", function()
 
         assert.is_true(found)
     end)
+
+    it("removes a completed task from an open-only view", function()
+        --
+        -- STEP 1:
+        -- Change this particular Vimwiki block to status=open.
+        --
+        local lines = vim.api.nvim_buf_get_lines(
+            bufnr,
+            0,
+            -1,
+            false
+        )
+
+        for i, line in ipairs(lines) do
+            if line == "<!-- scratchwiki:start -->" then
+                vim.api.nvim_buf_set_lines(
+                    bufnr,
+                    i - 1,
+                    i,
+                    false,
+                    {
+                        "<!-- scratchwiki:start status=open -->",
+                    }
+                )
+
+                break
+            end
+        end
+
+        --
+        -- STEP 2:
+        -- Refresh from Scratch.
+        --
+        assert.is_true(
+            scratchwiki.refresh(bufnr)
+        )
+
+        --
+        -- STEP 3:
+        -- Verify that our open Scratch task is visible.
+        --
+        lines = vim.api.nvim_buf_get_lines(
+            bufnr,
+            0,
+            -1,
+            false
+        )
+
+        local task_line
+
+        for i, line in ipairs(lines) do
+            if line:find("Integration test task", 1, true) then
+                task_line = i
+                break
+            end
+        end
+
+        assert.is_not_nil(task_line)
+
+        assert.matches(
+            "%- %[ %] Integration test task",
+            lines[task_line]
+        )
+
+        --
+        -- STEP 4:
+        -- Simulate Vimwiki completing the task.
+        --
+        local changed_line = lines[task_line]:gsub(
+            "%[ %]",
+            "[X]",
+            1
+        )
+
+        vim.api.nvim_buf_set_lines(
+            bufnr,
+            task_line - 1,
+            task_line,
+            false,
+            {
+                changed_line,
+            }
+        )
+
+        --
+        -- STEP 5:
+        -- Before execution, make sure reconciliation sees the change.
+        --
+        local operations, err = sync.plan(bufnr)
+
+        assert.is_nil(err)
+
+        local update
+
+        for _, operation in ipairs(operations) do
+            if operation.action == "update" then
+                update = operation
+                break
+            end
+        end
+
+        assert.is_not_nil(update)
+
+        assert.are.same(
+            "2026-10-29T12-00-00",
+            update.id
+        )
+
+        assert.are.same({
+            old = "open",
+            new = "done",
+        }, update.changes.status)
+
+        --
+        -- STEP 6:
+        -- Execute the synchronization.
+        --
+        assert.is_true(
+            sync.execute(bufnr)
+        )
+
+        --
+        -- STEP 7:
+        -- Verify Scratch itself was updated.
+        --
+        local issue = vim.fn.readfile(
+            directory .. "/2026-10-29T12-00-00.md"
+        )
+
+        assert.are.same(
+            "status: done",
+            issue[4]
+        )
+
+        --
+        -- STEP 8:
+        -- Verify body content was not damaged.
+        --
+        assert.are.same(
+            "This body must survive.",
+            issue[10]
+        )
+
+        --
+        -- STEP 9:
+        -- sync.execute() refreshes the Vimwiki block.
+        --
+        -- Because the block says status=open and the task is now done,
+        -- it must no longer be visible.
+        --
+        lines = vim.api.nvim_buf_get_lines(
+            bufnr,
+            0,
+            -1,
+            false
+        )
+
+        for _, line in ipairs(lines) do
+            assert.is_nil(
+                line:find(
+                    "Integration test task",
+                    1,
+                    true
+                )
+            )
+        end
+
+        --
+        -- STEP 10:
+        -- The managed block itself must still exist.
+        --
+        local start_found = false
+        local end_found = false
+
+        for _, line in ipairs(lines) do
+            if line == "<!-- scratchwiki:start status=open -->" then
+                start_found = true
+            elseif line == "<!-- scratchwiki:end -->" then
+                end_found = true
+            end
+        end
+
+        assert.is_true(start_found)
+        assert.is_true(end_found)
+    end)
 end)

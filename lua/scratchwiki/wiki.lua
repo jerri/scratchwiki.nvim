@@ -1,7 +1,26 @@
 local M = {}
 
-local START_MARKER = "<!-- scratchwiki:start -->"
 local END_MARKER = "<!-- scratchwiki:end -->"
+
+local function parse_start_marker(line)
+    local content = vim.trim(line):match(
+        "^<!%-%-%s*scratchwiki:start%s*(.-)%s*%-%->$"
+    )
+
+    if content == nil then
+        return nil
+    end
+
+    local options = {}
+
+    for key, value in content:gmatch("([%w_-]+)=([^%s]+)") do
+        options[key] = value
+    end
+
+    return options
+end
+
+M.parse_start_marker = parse_start_marker
 
 ---@param lines string[]
 ---@return integer?
@@ -14,7 +33,7 @@ local function find_markers(lines)
     for i, line in ipairs(lines) do
         local trimmed = vim.trim(line)
 
-        if trimmed == START_MARKER then
+        if parse_start_marker(trimmed) ~= nil then
             if start_idx then
                 return nil, nil, "multiple scratchwiki start markers found"
             end
@@ -188,6 +207,30 @@ function M.has_block(bufnr)
     local start_idx, end_idx = find_markers(lines)
 
     return start_idx ~= nil and end_idx ~= nil
+end
+
+---@param bufnr? integer
+---@return table?
+---@return string?
+function M.get_options(bufnr)
+    bufnr = bufnr or 0
+
+    local lines = vim.api.nvim_buf_get_lines(
+        bufnr,
+        0,
+        -1,
+        false
+    )
+
+    for _, line in ipairs(lines) do
+        local options = parse_start_marker(line)
+
+        if options ~= nil then
+            return options
+        end
+    end
+
+    return nil, "scratchwiki start marker not found"
 end
 
 return M

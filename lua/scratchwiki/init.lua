@@ -47,6 +47,22 @@ function M.refresh(bufnr)
     end
 
     local tasks = scratch.list()
+
+    local options, options_err = wiki.get_options(bufnr)
+
+    if not options then
+        vim.notify(
+            "scratchwiki: " .. options_err,
+            vim.log.levels.ERROR
+        )
+
+        return false
+    end
+
+    local filter = require("scratchwiki.filter")
+
+    tasks = filter.apply(tasks, options)
+
     local lines = markdown.render(tasks)
 
     local ok, result = wiki.replace_block(
