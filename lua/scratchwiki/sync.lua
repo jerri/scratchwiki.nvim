@@ -313,13 +313,15 @@ function M.execute(bufnr)
         end
     end
 
-    vim.notify(
-        string.format(
-            "scratchwiki: synchronized %d change(s)",
-            applied
-        ),
-        vim.log.levels.INFO
-    )
+    if applied > 0 then
+        vim.notify(
+            string.format(
+                "scratchwiki: synchronized %d change(s)",
+                applied
+            ),
+            vim.log.levels.INFO
+        )
+    end
 
     return true
 end

@@ -178,4 +178,16 @@ end
 M.find_markers = find_markers
 M.build_block = build_block
 
+---@param bufnr? integer
+---@return boolean
+function M.has_block(bufnr)
+    bufnr = bufnr or 0
+
+    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+    local start_idx, end_idx = find_markers(lines)
+
+    return start_idx ~= nil and end_idx ~= nil
+end
+
 return M

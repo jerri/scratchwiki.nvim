@@ -223,3 +223,19 @@ describe("scratchwiki markdown round trip", function()
         )
     end)
 end)
+
+describe("scratchwiki.markdown.render", function()
+    it("renders completed tasks with Vimwiki uppercase X", function()
+        local lines = markdown.render({
+            {
+                id = "123",
+                title = "Completed task",
+                status = "done",
+            },
+        })
+
+        assert.are.same({
+            "- [X] Completed task <!-- scratchwiki:id=123 -->",
+        }, lines)
+    end)
+end)

@@ -3,6 +3,11 @@ local M = {}
 M.defaults = {
     scratch_dir = vim.fn.stdpath("data")
         .. "/scratch.nvim/issues",
+
+    sync = {
+        on_open = true,
+        on_save = true,
+    }
 }
 
 M.options = vim.deepcopy(M.defaults)

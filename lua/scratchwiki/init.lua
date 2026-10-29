@@ -85,6 +85,7 @@ end
 
 function M.setup(opts)
     require("scratchwiki.config").setup(opts)
+    require("scratchwiki.autocmds").setup()
 end
 
 return M
