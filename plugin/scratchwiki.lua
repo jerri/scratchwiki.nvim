@@ -13,3 +13,13 @@ vim.api.nvim_create_user_command(
         desc = "Refresh Scratch tasks in the current Vimwiki buffer",
     }
 )
+
+vim.api.nvim_create_user_command(
+    "ScratchWikiSync",
+    function()
+        require("scratchwiki.sync").dry_run()
+    end,
+    {
+        desc = "Show planned ScratchWiki synchronization changes",
+    }
+)
