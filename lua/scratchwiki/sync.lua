@@ -241,7 +241,29 @@ M.format_operations = format_operations
 ---@param bufnr? integer
 ---@return boolean
 function M.execute(bufnr)
-    bufnr = bufnr or 0
+    bufnr = bufnr or vim.api.nvim_get_current_buf()
+
+    if bufnr == 0 then
+        bufnr = vim.api.nvim_get_current_buf()
+    end
+
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+        vim.notify(
+            "scratchwiki: invalid buffer",
+            vim.log.levels.ERROR
+        )
+
+        return false
+    end
+
+    if not vim.bo[bufnr].modifiable then
+        vim.notify(
+            "scratchwiki: current buffer is not modifiable",
+            vim.log.levels.ERROR
+        )
+
+        return false
+    end
 
     local operations, err, scratch_tasks = M.plan(bufnr)
 
