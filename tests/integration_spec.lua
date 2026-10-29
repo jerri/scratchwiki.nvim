@@ -99,7 +99,7 @@ describe("scratchwiki integration", function()
         --
         -- Simulate the user ticking the checkbox.
         --
-        lines[task_line] = lines[task_line]:gsub("%[ %]", "[x]", 1)
+        lines[task_line] = lines[task_line]:gsub("%[ %]", "[X]", 1)
 
         vim.api.nvim_buf_set_lines(
             bufnr,
@@ -164,7 +164,7 @@ describe("scratchwiki integration", function()
 
         for _, line in ipairs(lines) do
             if line:match("Integration test task") then
-                assert.matches("%- %[x%]", line)
+                assert.matches("%- %[X%]", line)
                 found = true
             end
         end
