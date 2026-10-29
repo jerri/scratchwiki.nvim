@@ -103,6 +103,17 @@ function M.plan(bufnr)
     local wiki_tasks = markdown.parse(block)
     local scratch_tasks = scratch.list()
 
+    local validate = require("scratchwiki.validate")
+
+    local ok, validation_err = validate.validate(
+        wiki_tasks,
+        scratch_tasks
+    )
+
+    if not ok then
+        return nil, validation_err
+    end
+
     local operations = reconcile.reconcile(
         scratch_tasks,
         wiki_tasks
