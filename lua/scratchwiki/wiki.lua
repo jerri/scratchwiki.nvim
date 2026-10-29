@@ -70,4 +70,32 @@ function M.replace_block(bufnr, content)
     return true
 end
 
+---@param bufnr? integer
+---@return string[]?
+---@return string?
+function M.get_block(bufnr)
+    bufnr = bufnr or 0
+
+    local lines = vim.api.nvim_buf_get_lines(
+        bufnr,
+        0,
+        -1,
+        false
+    )
+
+    local start_idx, end_idx, err = find_markers(lines)
+
+    if not start_idx then
+        return nil, err
+    end
+
+    local block = {}
+
+    for i = start_idx + 1, end_idx - 1 do
+        table.insert(block, lines[i])
+    end
+
+    return block
+end
+
 return M
