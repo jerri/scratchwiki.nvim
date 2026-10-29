@@ -16,10 +16,15 @@ vim.api.nvim_create_user_command(
 
 vim.api.nvim_create_user_command(
     "ScratchWikiSync",
-    function()
-        require("scratchwiki.sync").dry_run()
+    function(opts)
+        if opts.bang then
+            require("scratchwiki.sync").execute()
+        else
+            require("scratchwiki.sync").dry_run()
+        end
     end,
     {
-        desc = "Show planned ScratchWiki synchronization changes",
+        bang = true,
+        desc = "Synchronize Vimwiki tasks with Scratch (! applies changes)",
     }
 )

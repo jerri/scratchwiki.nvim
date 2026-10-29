@@ -119,8 +119,84 @@ function M.plan(bufnr)
         wiki_tasks
     )
 
-    return operations
+    return operations, nil, scratch_tasks
 end
+
+---@param operations table[]
+---@param scratch_tasks ScratchWikiTask[]
+---@return boolean
+---@return string?
+---@return integer
+local function execute_operations(operations, scratch_tasks, directory)
+    local scratch = require("scratchwiki.scratch")
+
+    local scratch_by_id = {}
+
+    for _, task in ipairs(scratch_tasks) do
+        scratch_by_id[task.id] = task
+    end
+
+    local applied = 0
+
+    -- Orphans make the state ambiguous. Abort before performing anything.
+    for _, operation in ipairs(operations) do
+        if operation.action == "orphan" then
+            return false, string.format(
+                'cannot sync: Scratch issue %q no longer exists (line %d)',
+                operation.id,
+                operation.line
+            ), applied
+        end
+    end
+
+    for _, operation in ipairs(operations) do
+        if operation.action == "update" then
+            local task = scratch_by_id[operation.id]
+
+            if not task then
+                return false, string.format(
+                    'Scratch issue %q disappeared during synchronization',
+                    operation.id
+                ), applied
+            end
+
+            local ok, err = scratch.update(
+                task,
+                operation.changes
+            )
+
+            if not ok then
+                return false, string.format(
+                    'failed to update %q: %s',
+                    operation.id,
+                    err
+                ), applied
+            end
+
+            applied = applied + 1
+        elseif operation.action == "create" then
+            local task, err = scratch.create(
+                operation.title,
+                operation.status,
+                directory
+            )
+
+            if not task then
+                return false, string.format(
+                    'failed to create %q: %s',
+                    operation.title,
+                    err
+                ), applied
+            end
+
+            applied = applied + 1
+        end
+    end
+
+    return true, nil, applied
+end
+
+M.execute_operations = execute_operations
 
 ---@param bufnr? integer
 ---@return boolean
@@ -161,5 +237,69 @@ function M.dry_run(bufnr)
 end
 
 M.format_operations = format_operations
+
+---@param bufnr? integer
+---@return boolean
+function M.execute(bufnr)
+    bufnr = bufnr or 0
+
+    local operations, err, scratch_tasks = M.plan(bufnr)
+
+    if not operations then
+        vim.notify(
+            "scratchwiki: " .. err,
+            vim.log.levels.ERROR
+        )
+
+        return false
+    end
+
+    local ok, execute_err, applied = execute_operations(
+        operations,
+        scratch_tasks
+    )
+
+    if not ok then
+        vim.notify(
+            string.format(
+                "scratchwiki: synchronization failed after %d change(s): %s",
+                applied,
+                execute_err
+            ),
+            vim.log.levels.ERROR
+        )
+
+        -- If anything was changed before the failure, make the Vimwiki
+        -- representation reflect the current Scratch state.
+        if applied > 0 then
+            require("scratchwiki").refresh(bufnr)
+        end
+
+        return false
+    end
+
+    if applied > 0 then
+        local refresh_ok = require("scratchwiki").refresh(bufnr)
+
+        if not refresh_ok then
+            vim.notify(
+                "scratchwiki: changes applied, but Vimwiki refresh failed",
+                vim.log.levels.WARN
+            )
+
+            return false
+        end
+    end
+
+    vim.notify(
+        string.format(
+            "scratchwiki: synchronized %d change(s)",
+            applied
+        ),
+        vim.log.levels.INFO
+    )
+
+    return true
+end
 
 return M

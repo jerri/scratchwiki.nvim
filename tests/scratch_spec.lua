@@ -300,3 +300,242 @@ describe("scratchwiki.scratch.update", function()
         assert.matches("does not exist", err)
     end)
 end)
+
+describe("scratchwiki.scratch.issue_content", function()
+    it("creates a Scratch compatible task", function()
+        local lines = scratch.issue_content(
+            "Review architecture guardrails",
+            "open"
+        )
+
+        assert.are.same({
+            "---",
+            "type: task",
+            "priority: normal",
+            "status: open",
+            "tags: ",
+            "---",
+            "",
+            "# Review architecture guardrails",
+            "",
+        }, lines)
+    end)
+
+    it("creates an already completed task", function()
+        local lines = scratch.issue_content(
+            "Already completed",
+            "done"
+        )
+
+        assert.are.same("status: done", lines[4])
+    end)
+end)
+
+describe("scratchwiki.scratch.format_timestamp", function()
+    it("uses Scratch timestamp format", function()
+        local time = os.time({
+            year = 2026,
+            month = 10,
+            day = 29,
+            hour = 9,
+            min = 43,
+            sec = 54,
+        })
+
+        assert.are.same(
+            "2026-10-29T09-43-54",
+            scratch.format_timestamp(time)
+        )
+    end)
+end)
+
+describe("scratchwiki.scratch.next_issue_path", function()
+    local directory
+
+    before_each(function()
+        directory = vim.fn.tempname()
+        vim.fn.mkdir(directory, "p")
+    end)
+
+    after_each(function()
+        vim.fn.delete(directory, "rf")
+    end)
+
+    it("uses the timestamp when no file exists", function()
+        local path = scratch.next_issue_path(
+            directory,
+            "2026-10-29T09-43-54"
+        )
+
+        assert.are.same(
+            directory .. "/2026-10-29T09-43-54.md",
+            path
+        )
+    end)
+
+    it("adds a suffix when the timestamp already exists", function()
+        vim.fn.writefile(
+            { "# Existing" },
+            directory .. "/2026-10-29T09-43-54.md"
+        )
+
+        local path = scratch.next_issue_path(
+            directory,
+            "2026-10-29T09-43-54"
+        )
+
+        assert.are.same(
+            directory .. "/2026-10-29T09-43-54-01.md",
+            path
+        )
+    end)
+
+    it("increments the suffix until a free filename exists", function()
+        vim.fn.writefile(
+            {},
+            directory .. "/2026-10-29T09-43-54.md"
+        )
+
+        vim.fn.writefile(
+            {},
+            directory .. "/2026-10-29T09-43-54-01.md"
+        )
+
+        vim.fn.writefile(
+            {},
+            directory .. "/2026-10-29T09-43-54-02.md"
+        )
+
+        local path = scratch.next_issue_path(
+            directory,
+            "2026-10-29T09-43-54"
+        )
+
+        assert.are.same(
+            directory .. "/2026-10-29T09-43-54-03.md",
+            path
+        )
+    end)
+end)
+
+describe("scratchwiki.scratch.create", function()
+    local directory
+
+    before_each(function()
+        directory = vim.fn.tempname()
+        vim.fn.mkdir(directory, "p")
+    end)
+
+    after_each(function()
+        vim.fn.delete(directory, "rf")
+    end)
+
+    it("creates a Scratch issue", function()
+        local task, err = scratch.create(
+            "New Vimwiki task",
+            "open",
+            directory
+        )
+
+        assert.is_nil(err)
+        assert.is_not_nil(task)
+
+        assert.are.same("New Vimwiki task", task.title)
+        assert.are.same("open", task.status)
+        assert.are.same("task", task.type)
+        assert.are.same("normal", task.priority)
+        assert.are.same({}, task.tags)
+
+        assert.are.equal(
+            1,
+            vim.fn.filereadable(task.path)
+        )
+    end)
+
+    it("creates parseable Scratch content", function()
+        local task, err = scratch.create(
+            "New Vimwiki task",
+            "open",
+            directory
+        )
+
+        assert.is_nil(err)
+
+        assert.are.same({
+            "---",
+            "type: task",
+            "priority: normal",
+            "status: open",
+            "tags: ",
+            "---",
+            "",
+            "# New Vimwiki task",
+            "",
+        }, vim.fn.readfile(task.path))
+    end)
+
+    it("trims the task title", function()
+        local task, err = scratch.create(
+            "   New task   ",
+            "open",
+            directory
+        )
+
+        assert.is_nil(err)
+        assert.are.same("New task", task.title)
+
+        local lines = vim.fn.readfile(task.path)
+
+        assert.are.same(
+            "# New task",
+            lines[8]
+        )
+    end)
+
+    it("supports creating completed tasks", function()
+        local task, err = scratch.create(
+            "Completed task",
+            "done",
+            directory
+        )
+
+        assert.is_nil(err)
+        assert.are.same("done", task.status)
+
+        local lines = vim.fn.readfile(task.path)
+
+        assert.are.same(
+            "status: done",
+            lines[4]
+        )
+    end)
+
+    it("rejects an empty title", function()
+        local task, err = scratch.create(
+            "   ",
+            "open",
+            directory
+        )
+
+        assert.is_nil(task)
+        assert.are.same(
+            "task title must not be empty",
+            err
+        )
+    end)
+
+    it("rejects invalid status", function()
+        local task, err = scratch.create(
+            "Foo",
+            "maybe",
+            directory
+        )
+
+        assert.is_nil(task)
+
+        assert.matches(
+            "invalid task status",
+            err
+        )
+    end)
+end)

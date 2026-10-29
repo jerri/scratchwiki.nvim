@@ -247,4 +247,103 @@ function M.update(task, changes)
     return true
 end
 
+local function format_timestamp(time)
+    return os.date("%Y-%m-%dT%H-%M-%S", time)
+end
+
+local function issue_content(title, status)
+    return {
+        "---",
+        "type: task",
+        "priority: normal",
+        "status: " .. status,
+        "tags: ",
+        "---",
+        "",
+        "# " .. title,
+        "",
+    }
+end
+
+local function next_issue_path(directory, timestamp)
+    local base = timestamp
+    local path = directory .. "/" .. base .. ".md"
+
+    if vim.fn.filereadable(path) ~= 1 then
+        return path
+    end
+
+    local suffix = 1
+
+    while true do
+        path = string.format(
+            "%s/%s-%02d.md",
+            directory,
+            base,
+            suffix
+        )
+
+        if vim.fn.filereadable(path) ~= 1 then
+            return path
+        end
+
+        suffix = suffix + 1
+    end
+end
+
+---@param title string
+---@param status? "open"|"done"
+---@param directory? string
+---@return ScratchWikiTask?
+---@return string?
+function M.create(title, status, directory)
+    status = status or "open"
+
+    if not title or vim.trim(title) == "" then
+        return nil, "task title must not be empty"
+    end
+
+    if status ~= "open" and status ~= "done" then
+        return nil, "invalid task status: " .. tostring(status)
+    end
+
+    directory = directory
+        or (vim.fn.stdpath("data") .. "/scratch.nvim/issues")
+
+    if vim.fn.isdirectory(directory) ~= 1 then
+        local result = vim.fn.mkdir(directory, "p")
+
+        if result ~= 1 then
+            return nil, "failed to create Scratch directory: " .. directory
+        end
+    end
+
+    title = vim.trim(title)
+
+    local timestamp = format_timestamp(os.time())
+    local path = next_issue_path(directory, timestamp)
+
+    local lines = issue_content(title, status)
+
+    local result = vim.fn.writefile(lines, path)
+
+    if result ~= 0 then
+        return nil, "failed to create Scratch issue: " .. path
+    end
+
+    return {
+        id = vim.fn.fnamemodify(path, ":t:r"),
+        title = title,
+        status = status,
+        type = "task",
+        priority = "normal",
+        tags = {},
+        path = path,
+    }
+end
+
+M.format_timestamp = format_timestamp
+M.issue_content = issue_content
+M.next_issue_path = next_issue_path
+
 return M
