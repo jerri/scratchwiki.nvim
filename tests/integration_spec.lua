@@ -164,7 +164,7 @@ describe("scratchwiki integration", function()
 
         for _, line in ipairs(lines) do
             if line:match("Integration test task") then
-                assert.matches("%- %[X%]", line)
+                assert.matches("%- %[x%]", line)
                 found = true
             end
         end
@@ -273,7 +273,7 @@ describe("scratchwiki integration", function()
 
         for _, wiki_line in ipairs(lines) do
             if wiki_line:match("Renamed integration task") then
-                assert.matches("%- %[X%]", wiki_line)
+                assert.matches("%- %[x%]", wiki_line)
 
                 assert.matches(
                     "scratchwiki:id=2026%-10%-29T12%-00%-00",

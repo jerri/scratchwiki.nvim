@@ -235,7 +235,7 @@ describe("scratchwiki.markdown.render", function()
         })
 
         assert.are.same({
-            "- [X] Completed task <!-- scratchwiki:id=123 -->",
+            "- [x] Completed task <!-- scratchwiki:id=123 -->",
         }, lines)
     end)
 end)

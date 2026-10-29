@@ -12,7 +12,7 @@ function M.render(tasks)
     local lines = {}
 
     for _, task in ipairs(tasks) do
-        local checkbox = task.status == "done" and "X" or " "
+        local checkbox = task.status == "done" and "x" or " "
 
         table.insert(
             lines,
