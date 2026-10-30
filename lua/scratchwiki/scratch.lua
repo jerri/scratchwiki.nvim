@@ -346,4 +346,29 @@ M.format_timestamp = format_timestamp
 M.issue_content = issue_content
 M.next_issue_path = next_issue_path
 
+---@param id string
+---@return boolean
+---@return string?
+function M.open(id)
+    local directory =
+        require("scratchwiki.config").options.scratch_dir
+
+    local path = directory .. "/" .. id .. ".md"
+
+    if vim.fn.filereadable(path) ~= 1 then
+        return false, "Scratch issue does not exist: " .. path
+    end
+
+    local ok, err = pcall(
+        require("scratch").open_issue,
+        path
+    )
+
+    if not ok then
+        return false, tostring(err)
+    end
+
+    return true
+end
+
 return M

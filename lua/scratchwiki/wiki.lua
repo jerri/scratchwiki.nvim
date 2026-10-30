@@ -233,4 +233,28 @@ function M.get_options(bufnr)
     return nil, "scratchwiki start marker not found"
 end
 
+---@param bufnr? integer
+---@return string?
+function M.task_id_at_cursor(bufnr)
+    bufnr = bufnr or 0
+
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local line_number = cursor[1]
+
+    local line = vim.api.nvim_buf_get_lines(
+        bufnr,
+        line_number - 1,
+        line_number,
+        false
+    )[1]
+
+    if not line then
+        return nil
+    end
+
+    return line:match(
+        "<!%-%-%s*scratchwiki:id=([^%s]+)%s*%-%->"
+    )
+end
+
 return M

@@ -28,3 +28,34 @@ vim.api.nvim_create_user_command(
         desc = "Synchronize Vimwiki tasks with Scratch (! applies changes)",
     }
 )
+
+vim.api.nvim_create_user_command(
+    "ScratchWikiOpen",
+    function()
+        local wiki = require("scratchwiki.wiki")
+        local scratch = require("scratchwiki.scratch")
+
+        local id = wiki.task_id_at_cursor(0)
+
+        if not id then
+            vim.notify(
+                "scratchwiki: no Scratch task under cursor",
+                vim.log.levels.WARN
+            )
+
+            return
+        end
+
+        local ok, err = scratch.open(id)
+
+        if not ok then
+            vim.notify(
+                "scratchwiki: " .. err,
+                vim.log.levels.ERROR
+            )
+        end
+    end,
+    {
+        desc = "Open Scratch issue under cursor",
+    }
+)

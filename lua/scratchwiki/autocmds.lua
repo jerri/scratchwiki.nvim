@@ -12,6 +12,29 @@ local function is_scratchwiki_buffer(bufnr)
     return require("scratchwiki.wiki").has_block(bufnr)
 end
 
+local function setup_buffer_mappings(bufnr)
+    local config = require("scratchwiki.config").options
+
+    local lhs = config.mappings.open
+
+    if not lhs or lhs == "" then
+        return
+    end
+
+    vim.keymap.set(
+        "n",
+        lhs,
+        function()
+            require("scratchwiki").open_at_cursor()
+        end,
+        {
+            buffer = bufnr,
+            silent = true,
+            desc = "Open Scratch issue",
+        }
+    )
+end
+
 function M.setup()
     local config = require("scratchwiki.config").options
 
@@ -29,6 +52,8 @@ function M.setup()
                 if not is_scratchwiki_buffer(args.buf) then
                     return
                 end
+
+                setup_buffer_mappings(args.buf)
 
                 require("scratchwiki").refresh(args.buf)
             end,

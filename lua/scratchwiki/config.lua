@@ -7,7 +7,11 @@ M.defaults = {
     sync = {
         on_open = true,
         on_save = true,
-    }
+    },
+
+    mappings = {
+        open = "gf",
+    },
 }
 
 M.options = vim.deepcopy(M.defaults)

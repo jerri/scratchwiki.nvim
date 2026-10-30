@@ -104,4 +104,28 @@ function M.setup(opts)
     require("scratchwiki.autocmds").setup()
 end
 
+function M.open_at_cursor()
+    local wiki = require("scratchwiki.wiki")
+    local scratch = require("scratchwiki.scratch")
+
+    local id = wiki.task_id_at_cursor(0)
+
+    if not id then
+        return false
+    end
+
+    local ok, err = scratch.open(id)
+
+    if not ok then
+        vim.notify(
+            "scratchwiki: " .. err,
+            vim.log.levels.ERROR
+        )
+
+        return false
+    end
+
+    return true
+end
+
 return M
