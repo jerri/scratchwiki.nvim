@@ -1,0 +1,576 @@
+*scratchwiki.txt*              Scratch issues in Vimwiki              *scratchwiki*
+
+==============================================================================
+CONTENTS                                                     *scratchwiki-contents*
+
+1. Introduction ........................................ |scratchwiki-introduction|
+2. Requirements ........................................ |scratchwiki-requirements|
+3. Installation ........................................ |scratchwiki-installation|
+4. Setup ............................................... |scratchwiki-setup|
+5. ScratchWiki blocks .................................. |scratchwiki-blocks|
+6. Working with tasks .................................. |scratchwiki-tasks|
+7. Filtering ........................................... |scratchwiki-filtering|
+8. Commands ............................................ |scratchwiki-commands|
+9. Mappings ............................................ |scratchwiki-mappings|
+10. Automatic synchronization .......................... |scratchwiki-automatic-sync|
+11. Scratch issue format ............................... |scratchwiki-issue-format|
+12. Safety and conflicts ............................... |scratchwiki-safety|
+13. Troubleshooting .................................... |scratchwiki-troubleshooting|
+14. Development ........................................ |scratchwiki-development|
+15. License ............................................ |scratchwiki-license|
+
+==============================================================================
+1. INTRODUCTION                                            *scratchwiki-introduction*
+
+scratchwiki.nvim integrates global scratch.nvim issues with Vimwiki.
+
+It renders Scratch issues as editable Markdown checkboxes inside managed
+Vimwiki blocks. Scratch remains the source of truth, while Vimwiki provides an
+always-visible task view similar to a Taskwiki workflow.
+
+The plugin can:
+
+- render global Scratch issues in Vimwiki;
+- complete and reopen issues using Markdown checkboxes;
+- rename issues from Vimwiki;
+- create new global Scratch issues from Vimwiki;
+- filter displayed tasks by status;
+- open the full Scratch issue under the cursor;
+- synchronize automatically when opening and saving Vimwiki buffers.
+
+Only the contents between ScratchWiki markers are managed. Content elsewhere
+in the Vimwiki page is not modified.
+
+==============================================================================
+2. REQUIREMENTS                                              *scratchwiki-requirements*
+
+Required:
+
+- Neovim
+- Vimwiki
+- reybits/scratch.nvim
+
+The plugin currently operates on the global Scratch issue directory.
+
+==============================================================================
+3. INSTALLATION                                              *scratchwiki-installation*
+
+Using lazy.nvim: >lua
+
+  {
+    "jerri/scratchwiki.nvim",
+    dependencies = {
+      "reybits/scratch.nvim",
+    },
+    opts = {},
+  }
+<
+
+The setup function must be called. With lazy.nvim, specifying `opts = {}`
+causes lazy.nvim to call `require("scratchwiki").setup({})` automatically.
+
+To configure the plugin explicitly: >lua
+
+  {
+    "jerri/scratchwiki.nvim",
+    dependencies = {
+      "reybits/scratch.nvim",
+    },
+    opts = {
+      sync = {
+        on_open = true,
+        on_save = true,
+      },
+      mappings = {
+        open = "<CR>",
+      },
+    },
+  }
+<
+
+While developing from a local checkout: >lua
+
+  {
+    dir = "~/Projects/scratchwiki.nvim",
+    dependencies = {
+      "reybits/scratch.nvim",
+    },
+    opts = {},
+  }
+<
+
+==============================================================================
+4. SETUP                                                            *scratchwiki-setup*
+
+The default configuration is conceptually equivalent to: >lua
+
+  require("scratchwiki").setup({
+    scratch_dir = vim.fn.stdpath("data") .. "/scratch.nvim/issues",
+    sync = {
+      on_open = true,
+      on_save = true,
+    },
+    mappings = {
+      open = "gf",
+    },
+  })
+<
+
+                                                              *scratchwiki-scratch-dir*
+`scratch_dir` ~
+
+Directory containing the global scratch.nvim issue files.
+
+Default: >lua
+
+  vim.fn.stdpath("data") .. "/scratch.nvim/issues"
+<
+
+                                                          *scratchwiki-sync-options*
+`sync.on_open` ~
+
+Refresh ScratchWiki blocks when a Vimwiki buffer is opened or receives the
+`vimwiki` filetype.
+
+Default: `true`
+
+`sync.on_save` ~
+
+Synchronize the Vimwiki block to Scratch before writing the Vimwiki buffer.
+Newly assigned Scratch IDs are therefore included in the same write.
+
+Default: `true`
+
+                                                             *scratchwiki-open-mapping*
+`mappings.open` ~
+
+Buffer-local normal-mode mapping used to open the Scratch issue under the
+cursor. Set it to an empty string or `false` to disable the mapping.
+
+Example: >lua
+
+  require("scratchwiki").setup({
+    mappings = {
+      open = "<CR>",
+    },
+  })
+<
+
+Use `gf` instead if Enter is already important to your Vimwiki workflow: >lua
+
+  require("scratchwiki").setup({
+    mappings = {
+      open = "gf",
+    },
+  })
+<
+
+==============================================================================
+5. SCRATCHWIKI BLOCKS                                         *scratchwiki-blocks*
+
+Add a managed block to any buffer whose filetype is `vimwiki`: >markdown
+
+  ## Tasks
+
+  <!-- scratchwiki:start -->
+
+  <!-- scratchwiki:end -->
+<
+
+After refresh, the block may look like: >markdown
+
+  <!-- scratchwiki:start -->
+
+  - [ ] Prepare architecture presentation <!-- scratchwiki:id=2026-10-30T08-12-00 -->
+  - [x] Update documentation <!-- scratchwiki:id=2026-10-29T16-20-10 -->
+
+  <!-- scratchwiki:end -->
+<
+
+The plugin owns everything between the start and end markers, including the
+surrounding blank lines. Content outside the markers is preserved.
+
+Each existing task has a stable metadata comment: >markdown
+
+  <!-- scratchwiki:id=2026-10-30T08-12-00 -->
+<
+
+Do not manually copy an ID to another task. Duplicate IDs abort
+synchronization.
+
+A Vimwiki buffer without both markers is ignored by automatic hooks.
+
+==============================================================================
+6. WORKING WITH TASKS                                           *scratchwiki-tasks*
+
+                                                             *scratchwiki-complete*
+Complete a task ~
+
+Change an open checkbox to a completed checkbox: >markdown
+
+  - [X] Prepare presentation <!-- scratchwiki:id=2026-10-30T08-12-00 -->
+<
+
+Both `[x]` and `[X]` are accepted. On synchronization, the corresponding
+Scratch frontmatter is changed to: >yaml
+
+  status: done
+<
+
+                                                               *scratchwiki-reopen*
+Reopen a task ~
+
+Change the checkbox back to: >markdown
+
+  - [ ] Prepare presentation <!-- scratchwiki:id=2026-10-30T08-12-00 -->
+<
+
+The corresponding Scratch status becomes `open`.
+
+                                                               *scratchwiki-create*
+Create a task ~
+
+Add a checkbox without a ScratchWiki ID: >markdown
+
+  - [ ] Review architecture proposal
+<
+
+On synchronization, a new global Scratch issue is created. The refreshed line
+receives the generated ID: >markdown
+
+  - [ ] Review architecture proposal <!-- scratchwiki:id=2026-10-30T08-42-31 -->
+<
+
+New issues currently use these defaults: >yaml
+
+  type: task
+  priority: normal
+  status: open
+  tags:
+<
+
+                                                               *scratchwiki-rename*
+Rename a task ~
+
+Edit the visible title but preserve the ID: >diff
+
+  - - [ ] Review architecture proposal <!-- scratchwiki:id=2026-10-30T08-42-31 -->
+  + - [ ] Review architecture board proposal <!-- scratchwiki:id=2026-10-30T08-42-31 -->
+<
+
+The first H1 heading in the Scratch issue is updated. The issue body and other
+frontmatter fields are preserved.
+
+                                                               *scratchwiki-delete*
+Delete a task ~
+
+Deletion from Vimwiki is intentionally not supported. Removing a generated
+line does not delete the corresponding Scratch issue. A later refresh can
+restore it if it still matches the block filter.
+
+==============================================================================
+7. FILTERING                                                   *scratchwiki-filtering*
+
+Filters are specified as attributes on the start marker.
+
+                                                          *scratchwiki-filter-status*
+Show only open tasks: >markdown
+
+  <!-- scratchwiki:start status=open -->
+
+  <!-- scratchwiki:end -->
+<
+
+Show only completed tasks: >markdown
+
+  <!-- scratchwiki:start status=done -->
+
+  <!-- scratchwiki:end -->
+<
+
+Without a status option, both open and completed tasks are displayed: >markdown
+
+  <!-- scratchwiki:start -->
+<
+
+When an open-only task is marked complete and synchronized, it disappears from
+that view after Scratch is updated and the block is refreshed.
+
+Filtering affects only presentation. Reconciliation still reads the complete
+Scratch issue set so existing issue IDs can be resolved safely.
+
+Planned extensions include filtering by tags, priority, and issue type.
+
+==============================================================================
+8. COMMANDS                                                     *scratchwiki-commands*
+
+                                                        *:ScratchWikiRefresh*
+:ScratchWikiRefresh ~
+
+Refresh the current managed block from Scratch.
+
+This performs a one-way operation: >
+
+  Scratch -> Vimwiki
+<
+
+The configured filter on the start marker is applied.
+
+                                                           *:ScratchWikiSync*
+:ScratchWikiSync ~
+
+Show a dry-run synchronization plan. No Scratch files are modified.
+
+Possible operation types include:
+
+- `CREATE`: a checkbox without an ID will create a Scratch issue;
+- `UPDATE`: task title or status changed;
+- `ORPHAN`: the referenced Scratch issue no longer exists;
+- `UNCHANGED`: no operation is needed.
+
+Example output: >
+
+  UPDATE   line 5: 2026-10-30T08-12-00 (status: open -> done)
+  CREATE   line 8: Review architecture proposal [open]
+
+  Summary: 1 create, 1 update, 12 unchanged, 0 orphan
+<
+
+                                                          *:ScratchWikiSync!*
+:ScratchWikiSync! ~
+
+Apply the synchronization plan and refresh the managed block afterwards.
+
+This command can create Scratch issues and update existing issue status and
+title.
+
+                                                           *:ScratchWikiOpen*
+:ScratchWikiOpen ~
+
+Open the Scratch issue referenced by the task under the cursor. The full issue
+is opened through scratch.nvim.
+
+If the current line has no ScratchWiki ID, no issue can be opened.
+
+==============================================================================
+9. MAPPINGS                                                     *scratchwiki-mappings*
+
+The configured open mapping is installed buffer-locally for applicable
+Vimwiki buffers.
+
+Place the cursor anywhere on a generated task and invoke the mapping: >markdown
+
+  - [ ] Review architecture proposal <!-- scratchwiki:id=2026-10-30T08-42-31 -->
+<
+
+For example, with: >lua
+
+  mappings = {
+    open = "<CR>",
+  }
+<
+
+pressing Enter opens the corresponding scratch.nvim issue editor.
+
+The equivalent command is |:ScratchWikiOpen|.
+
+==============================================================================
+10. AUTOMATIC SYNCHRONIZATION                            *scratchwiki-automatic-sync*
+
+Automatic hooks apply to any buffer with:
+
+1. filetype `vimwiki`; and
+2. a valid ScratchWiki start/end marker pair.
+
+A Vimwiki buffer without a ScratchWiki block is ignored.
+
+On open or FileType: >
+
+  Scratch -> filter -> Vimwiki block
+<
+
+Before saving: >
+
+  Vimwiki block -> validate -> reconcile -> Scratch
+                                      |
+                                      +-> refresh Vimwiki block
+<
+
+Synchronization happens during `BufWritePre`. This ensures that IDs generated
+for new tasks become part of the same Vimwiki file write.
+
+If automatic synchronization fails, the write is aborted rather than silently
+saving an inconsistent managed block.
+
+To disable automatic behavior: >lua
+
+  require("scratchwiki").setup({
+    sync = {
+      on_open = false,
+      on_save = false,
+    },
+  })
+<
+
+Use |:ScratchWikiRefresh| and |:ScratchWikiSync!| manually in that mode.
+
+==============================================================================
+11. SCRATCH ISSUE FORMAT                                  *scratchwiki-issue-format*
+
+A typical Scratch issue looks like: >markdown
+
+  ---
+  type: task
+  priority: high
+  status: open
+  tags: architecture
+  ---
+
+  # Review architecture proposal
+
+  Detailed information can remain here.
+
+  ## Notes
+
+  Arbitrary Markdown content is preserved.
+<
+
+ScratchWiki currently modifies only:
+
+- the `status` frontmatter field;
+- the first H1 task title.
+
+Other frontmatter and body content are preserved.
+
+The issue filename stem is treated as an opaque stable ID, even when it uses a
+timestamp-like format.
+
+==============================================================================
+12. SAFETY AND CONFLICTS                                      *scratchwiki-safety*
+
+ScratchWiki uses conservative synchronization rules:
+
+- only content between the managed markers is regenerated;
+- Scratch issue bodies are preserved;
+- an update verifies the previous title/status before writing;
+- duplicate Vimwiki IDs abort synchronization;
+- duplicate Scratch IDs abort synchronization;
+- orphaned IDs abort write synchronization;
+- missing Vimwiki entries do not delete Scratch issues;
+- existing issue files are updated through a temporary file and backup;
+- |:ScratchWikiSync| can inspect changes before applying them.
+
+An orphan is a Vimwiki task whose ID no longer resolves to a Scratch issue.
+Resolve it by restoring the issue, correcting the ID, or removing the orphaned
+Vimwiki line before synchronizing again.
+
+==============================================================================
+13. TROUBLESHOOTING                                      *scratchwiki-troubleshooting*
+
+The hooks are not running ~
+
+Check the current filetype: >vim
+
+  :set filetype?
+<
+
+It must be `vimwiki`.
+
+Check that setup was called. With lazy.nvim, include `opts = {}` or an explicit
+`config` function.
+
+Inspect the autocmd group: >vim
+
+  :autocmd ScratchWiki
+<
+
+Check block detection: >vim
+
+  :lua print(require("scratchwiki.wiki").has_block(0))
+<
+
+It should print `true` in a valid managed Vimwiki buffer.
+
+The block is not found ~
+
+Use a valid marker pair: >markdown
+
+  <!-- scratchwiki:start -->
+
+  <!-- scratchwiki:end -->
+<
+
+or a filtered start marker: >markdown
+
+  <!-- scratchwiki:start status=open -->
+<
+
+Do not add a second start or end marker until multiple-block support is
+implemented.
+
+Completed checkboxes change case ~
+
+ScratchWiki accepts both `[x]` and `[X]`. Formatters such as Prettier may
+normalize the checkbox case. This does not change task status semantics.
+
+The Scratch issue does not open ~
+
+Confirm that the current line contains a ScratchWiki ID and that the
+corresponding `<id>.md` file exists in `scratch_dir`.
+
+Test the command directly: >vim
+
+  :ScratchWikiOpen
+<
+
+Synchronization reports a conflict ~
+
+A Scratch file changed after the Vimwiki plan was calculated. Refresh the view
+with |:ScratchWikiRefresh|, reapply the desired edit, and synchronize again.
+
+A completed task disappeared ~
+
+This is expected when the block uses `status=open`. The task remains in
+Scratch with status `done`, but no longer matches the view filter.
+
+==============================================================================
+14. DEVELOPMENT                                              *scratchwiki-development*
+
+The test suite uses Plenary's Busted-compatible runner.
+
+Run all tests from the repository root: >sh
+
+  nvim --headless \
+    -u tests/minimal_init.lua \
+    -c "PlenaryBustedDirectory tests/"
+<
+
+PowerShell: >powershell
+
+  nvim --headless `
+    -u tests/minimal_init.lua `
+    -c "PlenaryBustedDirectory tests/"
+<
+
+Run one test file: >powershell
+
+  nvim --headless `
+    -u tests/minimal_init.lua `
+    -c "PlenaryBustedFile tests/integration_spec.lua"
+<
+
+After installing or changing this help file, regenerate help tags with: >vim
+
+  :helptags ALL
+<
+
+Plugin managers commonly run helptags automatically after installation.
+
+==============================================================================
+15. LICENSE                                                      *scratchwiki-license*
+
+scratchwiki.nvim is distributed under the MIT License. See the repository
+LICENSE file.
+
+==============================================================================
+vim:tw=78:ts=8:noet:ft=help:norl:

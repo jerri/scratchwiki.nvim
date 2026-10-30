@@ -1,0 +1,18 @@
+# Neovim
+*.swp
+*.swo
+
+# Lua
+.luarocks/
+
+# Tests / coverage
+luacov.stats.out
+luacov.report.out
+
+# Editors
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
