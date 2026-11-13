@@ -622,4 +622,181 @@ describe("scratchwiki integration", function()
         assert.is_true(start_found)
         assert.is_true(end_found)
     end)
+
+    it("filters tags and sorts tasks in the managed block", function()
+        vim.fn.writefile({
+            "---",
+            "type: task",
+            "priority: low",
+            "status: open",
+            "tags: architecture",
+            "---",
+            "",
+            "# Alpha architecture",
+            "",
+        }, directory .. "/2026-10-28T12-00-00.md")
+
+        vim.fn.writefile({
+            "---",
+            "type: task",
+            "priority: critical",
+            "status: open",
+            "tags: backend,architecture",
+            "---",
+            "",
+            "# Zulu backend",
+            "",
+        }, directory .. "/2026-10-27T12-00-00.md")
+
+        vim.fn.writefile({
+            "---",
+            "type: task",
+            "priority: normal",
+            "status: open",
+            "tags: backend",
+            "---",
+            "",
+            "# Beta backend",
+            "",
+        }, directory .. "/2026-10-26T12-00-00.md")
+
+        vim.fn.writefile({
+            "---",
+            "type: task",
+            "priority: normal",
+            "status: open",
+            "tags: frontend",
+            "---",
+            "",
+            "# Gamma frontend",
+            "",
+        }, directory .. "/2026-10-25T12-00-00.md")
+
+        local lines = vim.api.nvim_buf_get_lines(
+            bufnr,
+            0,
+            -1,
+            false
+        )
+
+        for i, line in ipairs(lines) do
+            if line == "<!-- scratchwiki:start -->" then
+                vim.api.nvim_buf_set_lines(
+                    bufnr,
+                    i - 1,
+                    i,
+                    false,
+                    {
+                        "<!-- scratchwiki:start status=open tags=test,architecture,backend tag_mode=any sort=-priority,title -->",
+                    }
+                )
+
+                break
+            end
+        end
+
+        assert.is_true(scratchwiki.refresh(bufnr))
+
+        lines = vim.api.nvim_buf_get_lines(
+            bufnr,
+            0,
+            -1,
+            false
+        )
+
+        local task_lines = {}
+
+        for _, line in ipairs(lines) do
+            if line:match("^%s*%- %[[ xX]%]") then
+                table.insert(task_lines, line)
+            end
+        end
+
+        assert.are.equal(4, #task_lines)
+
+        assert.matches("Zulu backend", task_lines[1])
+        assert.matches("Integration test task", task_lines[2])
+        assert.matches("Beta backend", task_lines[3])
+        assert.matches("Alpha architecture", task_lines[4])
+
+        for _, line in ipairs(task_lines) do
+            assert.is_nil(
+                line:find("Gamma frontend", 1, true)
+            )
+        end
+
+        local operations, err = sync.plan(bufnr)
+
+        assert.is_nil(err)
+        assert.are.equal(4, #operations)
+
+        for _, operation in ipairs(operations) do
+            assert.are.same("unchanged", operation.action)
+        end
+    end)
+
+    it("leaves the block unchanged for an invalid sort option", function()
+        local lines = vim.api.nvim_buf_get_lines(
+            bufnr,
+            0,
+            -1,
+            false
+        )
+
+        for i, line in ipairs(lines) do
+            if line == "<!-- scratchwiki:start -->" then
+                vim.api.nvim_buf_set_lines(
+                    bufnr,
+                    i - 1,
+                    i,
+                    false,
+                    {
+                        "<!-- scratchwiki:start sort=-unknown -->",
+                    }
+                )
+
+                break
+            end
+        end
+
+        local before = vim.api.nvim_buf_get_lines(
+            bufnr,
+            0,
+            -1,
+            false
+        )
+
+        local notifications = {}
+        local original_notify = vim.notify
+
+        vim.notify = function(message, level)
+            table.insert(notifications, {
+                message = message,
+                level = level,
+            })
+        end
+
+        local called, result = pcall(scratchwiki.refresh, bufnr)
+
+        vim.notify = original_notify
+
+        assert.is_true(called)
+        assert.is_false(result)
+        assert.are.equal(1, #notifications)
+
+        assert.matches(
+            'invalid sort field "unknown"',
+            notifications[1].message
+        )
+
+        assert.are.same(
+            before,
+            vim.api.nvim_buf_get_lines(
+                bufnr,
+                0,
+                -1,
+                false
+            )
+        )
+    end)
 end)

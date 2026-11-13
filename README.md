@@ -17,7 +17,9 @@ It is inspired by the workflow of Taskwarrior + Taskwiki, but uses
 - Create new global Scratch issues by adding Markdown checkboxes
 - Automatically synchronize when saving the Vimwiki page
 - Automatically refresh Scratch tasks when opening a Vimwiki page
-- Filter displayed issues, currently by status
+- Filter displayed issues by status and tags
+- Sort displayed issues by title, priority, type, status, creation time, or
+  modification time
 - Open the corresponding Scratch issue directly from the Vimwiki task
 - Preserve the Scratch issue body, priority, tags, and other metadata when
   changing task status or title
@@ -234,8 +236,68 @@ For example:
 After completing `Prepare presentation` and saving, its Scratch status becomes
 `done` and the task disappears from this view.
 
-Filtering is designed to be extended in the future to support fields such as
-tags, priority, and issue type.
+### Filter by tags
+
+Use `tags=` with a comma-separated list of tags:
+
+```markdown
+<!-- scratchwiki:start status=open tags=architecture,backend -->
+
+<!-- scratchwiki:end -->
+```
+
+By default, every listed tag must be present on a task. Use `tag_mode=any` to
+match tasks that carry at least one of the tags:
+
+```markdown
+<!-- scratchwiki:start tags=architecture,backend tag_mode=any -->
+```
+
+Tag matching is exact and case-sensitive. Tag values cannot contain spaces.
+
+Filters combine: `status=open tags=backend` shows open tasks tagged `backend`.
+
+## Sorting
+
+The sort order is defined on the same start marker with `sort=`:
+
+```markdown
+<!-- scratchwiki:start status=open tags=architecture sort=-priority,title -->
+
+<!-- scratchwiki:end -->
+```
+
+- Separate fields with commas.
+- Prefix a field with `-` for descending order. Without a prefix, or with `+`,
+  the field is sorted ascending.
+- Later fields break ties.
+- When all requested fields tie, newer Scratch issues come first.
+
+Supported fields:
+
+| Field | Ascending | Descending |
+|---|---|---|
+| `title` | A-Z, case-insensitive | Z-A |
+| `priority` | low, normal, high, critical | critical, high, normal, low |
+| `type` | bug, feature, refactor, task | task, refactor, feature, bug |
+| `status` | open, done | done, open |
+| `created` / `id` | oldest first | newest first |
+| `updated` | oldest modification first | newest modification first |
+
+Unknown priority, type, or status values are sorted after known values.
+
+Examples:
+
+```markdown
+<!-- scratchwiki:start sort=title -->
+<!-- scratchwiki:start sort=-priority,title -->
+<!-- scratchwiki:start sort=-updated -->
+```
+
+Without a `sort` option, the existing newest-first order is kept.
+
+An invalid sort field or `tag_mode` is reported with `vim.notify`, and the
+managed block is left unchanged.
 
 ## Opening the Scratch issue
 
@@ -276,7 +338,8 @@ opts = {
 
 ### `:ScratchWikiRefresh`
 
-Refresh the current ScratchWiki block from the Scratch issue store.
+Refresh the current ScratchWiki block from the Scratch issue store. Filters and
+the sort order from the start marker are applied.
 
 ```vim
 :ScratchWikiRefresh
@@ -417,6 +480,9 @@ Scratch remains the source of truth.
           reconciliation           filtering
                |                       |
                |                       v
+               |                    sorting
+               |                       |
+               |                       v
                |                  Vimwiki view
                |                       |
                +<----------------------+
@@ -479,7 +545,8 @@ The tests cover:
 - Scratch issue parsing and updates
 - reconciliation
 - validation
-- filtering
+- status and tag filtering
+- sorting
 - managed Vimwiki blocks
 - synchronization
 - end-to-end synchronization
@@ -488,22 +555,26 @@ The tests cover:
 
 Possible future additions include:
 
-- filter by tags
 - filter by priority
 - filter by issue type
+- sort by tags
 - multiple filtered task views
 - richer Taskwiki-style view definitions
 - configurable defaults for newly created tasks
 - editing Scratch metadata from Vimwiki
 - improved conflict handling
 
-Example future views might look like:
+Current view examples:
 
 ```markdown
 <!-- scratchwiki:start status=open tags=architecture -->
 ```
 
-or:
+```markdown
+<!-- scratchwiki:start status=open tags=architecture,backend tag_mode=any sort=-priority,title -->
+```
+
+A future priority filter might look like:
 
 ```markdown
 <!-- scratchwiki:start status=open priority=high -->

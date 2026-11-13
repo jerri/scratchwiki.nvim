@@ -60,8 +60,32 @@ function M.refresh(bufnr)
     end
 
     local filter = require("scratchwiki.filter")
+    local filtered, filter_err = filter.apply(tasks, options)
 
-    tasks = filter.apply(tasks, options)
+    if not filtered then
+        vim.notify(
+            "scratchwiki: " .. filter_err,
+            vim.log.levels.ERROR
+        )
+
+        return false
+    end
+
+    tasks = filtered
+
+    local sort = require("scratchwiki.sort")
+    local sorted, sort_err = sort.apply(tasks, options)
+
+    if not sorted then
+        vim.notify(
+            "scratchwiki: " .. sort_err,
+            vim.log.levels.ERROR
+        )
+
+        return false
+    end
+
+    tasks = sorted
 
     local lines = markdown.render(tasks)
 

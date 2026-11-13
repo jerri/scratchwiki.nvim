@@ -6,6 +6,7 @@
 ---@field priority string
 ---@field tags string[]
 ---@field path string
+---@field updated integer
 
 local M = {}
 
@@ -44,6 +45,7 @@ local function parse_file(path)
         type = "task",
         priority = "normal",
         tags = {},
+        updated = vim.fn.getftime(path),
     }
 
     local in_frontmatter = false
@@ -339,6 +341,7 @@ function M.create(title, status, directory)
         priority = "normal",
         tags = {},
         path = path,
+        updated = vim.fn.getftime(path),
     }
 end
 

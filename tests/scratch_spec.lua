@@ -19,6 +19,53 @@ local function issue_lines()
     }
 end
 
+describe("scratchwiki.scratch.list", function()
+    local directory
+
+    before_each(function()
+        directory = vim.fn.tempname()
+        vim.fn.mkdir(directory, "p")
+    end)
+
+    after_each(function()
+        vim.fn.delete(directory, "rf")
+    end)
+
+    it("parses task metadata including modification time", function()
+        local path = directory .. "/2026-10-29T09-43-54.md"
+
+        vim.fn.writefile(issue_lines(), path)
+
+        local timestamp = os.time({
+            year = 2026,
+            month = 1,
+            day = 1,
+        })
+
+        vim.uv.fs_utime(path, timestamp, timestamp)
+
+        assert.are.same(timestamp, vim.fn.getftime(path))
+
+        local tasks = scratch.list(directory)
+
+        assert.are.equal(1, #tasks)
+
+        local entry = tasks[1]
+
+        assert.are.same("2026-10-29T09-43-54", entry.id)
+
+        assert.are.same(
+            "Test the Application provided for Sharepoint",
+            entry.title
+        )
+
+        assert.are.same("high", entry.priority)
+        assert.are.same("open", entry.status)
+        assert.are.same({ "sharepoint" }, entry.tags)
+        assert.are.same(timestamp, entry.updated)
+    end)
+end)
+
 describe("scratchwiki.scratch.apply_changes", function()
     it("updates the status", function()
         local result, err = scratch.apply_changes(issue_lines(), {

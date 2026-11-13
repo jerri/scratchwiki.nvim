@@ -200,6 +200,20 @@ describe("scratchwiki.wiki.parse_start_marker", function()
         )
     end)
 
+    it("parses tag filters and sort order", function()
+        assert.are.same(
+            {
+                status = "open",
+                tags = "architecture,backend",
+                tag_mode = "all",
+                sort = "-priority,title",
+            },
+            wiki.parse_start_marker(
+                "<!-- scratchwiki:start status=open tags=architecture,backend tag_mode=all sort=-priority,title -->"
+            )
+        )
+    end)
+
     it("ignores unrelated markdown comments", function()
         assert.is_nil(
             wiki.parse_start_marker(

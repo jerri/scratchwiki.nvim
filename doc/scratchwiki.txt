@@ -9,7 +9,7 @@ CONTENTS                                                     *scratchwiki-conten
 4. Setup ............................................... |scratchwiki-setup|
 5. ScratchWiki blocks .................................. |scratchwiki-blocks|
 6. Working with tasks .................................. |scratchwiki-tasks|
-7. Filtering ........................................... |scratchwiki-filtering|
+7. Filtering and sorting ............................... |scratchwiki-filtering|
 8. Commands ............................................ |scratchwiki-commands|
 9. Mappings ............................................ |scratchwiki-mappings|
 10. Automatic synchronization .......................... |scratchwiki-automatic-sync|
@@ -34,7 +34,9 @@ The plugin can:
 - complete and reopen issues using Markdown checkboxes;
 - rename issues from Vimwiki;
 - create new global Scratch issues from Vimwiki;
-- filter displayed tasks by status;
+- filter displayed tasks by status and tags;
+- sort displayed tasks by title, priority, type, status, creation time, or
+  modification time;
 - open the full Scratch issue under the cursor;
 - synchronize automatically when opening and saving Vimwiki buffers.
 
@@ -269,7 +271,7 @@ line does not delete the corresponding Scratch issue. A later refresh can
 restore it if it still matches the block filter.
 
 ==============================================================================
-7. FILTERING                                                   *scratchwiki-filtering*
+7. FILTERING AND SORTING                                     *scratchwiki-filtering*
 
 Filters are specified as attributes on the start marker.
 
@@ -296,10 +298,62 @@ Without a status option, both open and completed tasks are displayed: >markdown
 When an open-only task is marked complete and synchronized, it disappears from
 that view after Scratch is updated and the block is refreshed.
 
-Filtering affects only presentation. Reconciliation still reads the complete
-Scratch issue set so existing issue IDs can be resolved safely.
+                                                          *scratchwiki-filter-tags*
+Filter by tags ~
 
-Planned extensions include filtering by tags, priority, and issue type.
+Use `tags=` with a comma-separated list: >markdown
+
+  <!-- scratchwiki:start tags=architecture,backend -->
+
+  <!-- scratchwiki:end -->
+<
+
+By default, every listed tag must be present. Use `tag_mode=any` to match a
+task carrying at least one of the tags: >markdown
+
+  <!-- scratchwiki:start tags=architecture,backend tag_mode=any -->
+<
+
+Tag matching is exact and case-sensitive. Tag values cannot contain spaces.
+
+Filters combine: `status=open tags=backend` shows open tasks tagged `backend`.
+
+                                                              *scratchwiki-sorting*
+Sorting ~
+
+The sort order is specified with `sort=` on the same start marker: >markdown
+
+  <!-- scratchwiki:start status=open tags=architecture sort=-priority,title -->
+<
+
+Separate fields with commas. Prefix a field with `-` for descending order.
+Without a prefix, or with `+`, the field is sorted ascending. Later fields
+break ties. When all requested fields tie, newer Scratch issues come first.
+
+Supported fields:
+
+- `title`: A-Z, case-insensitive;
+- `priority`: low, normal, high, critical;
+- `type`: bug, feature, refactor, task;
+- `status`: open, done;
+- `created` or `id`: oldest first ascending, newest first descending;
+- `updated`: oldest modification first ascending, newest first descending.
+
+The descending form reverses the order shown above. For example: >
+
+  sort=-priority,title
+<
+
+sorts critical issues first and uses the title for ties. Unknown priority,
+type, or status values sort after known values.
+
+Without a `sort` option, the existing newest-first order is kept.
+
+An invalid sort field or `tag_mode` is reported with |vim.notify|, and the
+managed block is left unchanged.
+
+Filtering and sorting affect only presentation. Reconciliation still reads the
+complete Scratch issue set so existing issue IDs can be resolved safely.
 
 ==============================================================================
 8. COMMANDS                                                     *scratchwiki-commands*
@@ -314,7 +368,7 @@ This performs a one-way operation: >
   Scratch -> Vimwiki
 <
 
-The configured filter on the start marker is applied.
+The configured filters and sort order on the start marker are applied.
 
                                                            *:ScratchWikiSync*
 :ScratchWikiSync ~
@@ -527,6 +581,13 @@ Synchronization reports a conflict ~
 
 A Scratch file changed after the Vimwiki plan was calculated. Refresh the view
 with |:ScratchWikiRefresh|, reapply the desired edit, and synchronize again.
+
+The view is empty or sorted unexpectedly ~
+
+Check the options on the start marker. An invalid `sort` field or `tag_mode`
+value is reported with |vim.notify|, and the block is left unchanged. Tag
+matching is case-sensitive, and multiple tags require all of them unless
+`tag_mode=any` is set.
 
 A completed task disappeared ~
 
